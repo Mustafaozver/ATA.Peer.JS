@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width">
+        <title>Peer-to-Peer Cue System --- Sender</title>
+		<style>
+
+.myVideo{
+	width: 160px;
+}
+.theirVideo{
+	width: 320px;
+	border: 1px;
+}
+
+		</style>
+		<script src="socket.io/socket.io.js"></script>
+        <script src="peerjs.js"></script>
+        <script src="ATA.Peer.js"></script>
+        <script>
+// ATA. Peer Starter
+
+function setup() {
+	ATA.ID = prompt("Adın?","Ornek");
+	document.all.myname.innerText = ATA.ID;
+	ATA.Peer.Open = function() {
+		document.all.myname.innerText = ATA.ID + " ( " + this.ID + " )";
+	};
+	ATA.Peer.Receive = function(osender,odata) {
+		if (odata.Data.Task == "GET") {
+			document.getElementById(""+osender).text = odata.ID;
+		}
+		if (odata.Data.Task == "POST") {
+			send2(odata.ID,odata.Data.Text);
+		}
+		console.log("\nnew Message:\nFromID : " + osender + "\nFrom : " + odata.ID + "\nTime : " + odata.Time + "\nData : \"" + JSON.stringify(odata.Data) + "\"");
+	}
+	ATA.Peer.__conn_ready = function(conn) {
+		var id = conn.peer;
+		connect2(id);
+		this.__conns[id] = conn;
+		this.__conns[id].on("open",function() {
+			ATA.Peer.__conns[this.peer].on("data",function(data) {
+				ATA.Peer.Receive(this.peer,JSON.parse(data));
+			});
+			ATA.Peer.Send(this.peer,{
+				Task:"GET"
+			});
+		});
+	};
+	//
+	document.all.message.onkeydown = function (event) {
+		if (event.which == 13 || event.keyCode == 13) {
+			send(document.all.destinations.options[document.all.destinations.selectedIndex].value,document.all.message.value);
+		};
+	};
+	navigator.getUserMedia = navigator.getUserMedia ||
+		navigator.webkitGetUserMedia ||
+		navigator.mozGetUserMedia;
+	navigator.getUserMedia({audio:true,video:true},function(stream) {
+		var video = document.getElementById("myVideo");
+		video.srcObject = (stream);
+		ATA.Peer.__stream1 = stream;
+	},function(error){console.log(error);});
+	ATA.Peer.__rtcconfig.key = "MUSTAFAOZVER0O";
+	ATA.Peer.Setup();
+}
+
+function call(destination) {
+	ATA.Peer.Call(destination,function (remoteStream) {
+		ATA.Peer.__stream2 = remoteStream;
+		var video = document.getElementById("theirVideo");
+		video.srcObject = ATA.Peer.__stream2;
+	},false);
+}
+
+function send(destination,text) {
+	ATA.Peer.Send(destination,{
+		Text:""+text,
+		Task:"POST"
+	});
+	send2(ATA.ID,text);
+}
+
+function send2(destination,text) {
+	document.all.messages.innerHTML += "<br/><font style=\"font-weight:bold;color:blue;\">" + destination + "</font> : " + text;
+}
+
+function connect(destination) {
+	ATA.Peer.Connect(destination);
+}
+
+function connect2(destination) {
+	if (document.getElementById("" + destination)) return;
+	var option = document.createElement("option");
+	option.innerHTML = ""+destination;
+	option.value = ""+destination;
+	option.id = ""+destination;
+	document.all.destinations.appendChild(option);
+	option.selected = true;
+	//document.all.mySelect.options[document.all.mySelect.options.length-1].selected = true
+}
+
+//
+		</script>
+    </head>
+    <body onload="setup();" style="background-color:gray;">
+		<div style="z-index:9000;width:320px;height:284px;position:fixed;right:0;top:0;background-color:white;">
+			<video id="theirVideo" class="theirVideo video-js vjs-default-skin" vjs-big-play-centered poster="/images/amba.jpg"></video>
+			<video id="myVideo" muted="true" class="myVideo" poster="/images/mugshot.jpg" autoplay></video>
+		</div>
+		<table style="width:100%;height:100%;position:fixed;left:0;top:0;background-color:white;">
+			<tr style="height:50px;">
+				<td>
+					<font style="font-weight:bold;" id="myname"></font><br/>
+					<input type="text" id="destination" value=""><button onclick="connect(document.all.destination.value);">Connect</button>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<div style="width:100%;height:100%;border:1px solid gray;background-color:black;color:white;" id="messages"></div>
+				</td>
+			</tr>
+			<tr style="height:50px;">
+				<td>
+					To:<select id="destinations"></select>
+					<br/>
+					Mes:<input style="width:100%;border:1px solid gray;" type="text" id="message" value="">
+					<br/>
+					<button onclick="send(document.all.destinations.options[document.all.destinations.selectedIndex].value,document.all.message.value);">Send</button>
+					<button onclick="call(document.all.destinations.options[document.all.destinations.selectedIndex].value);">Call</button>
+				</td>
+			</tr>
+		</table>
+    </body>
+</html>
